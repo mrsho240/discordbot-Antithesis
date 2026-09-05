@@ -41,6 +41,14 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(sub =>
     sub.setName('check-now').setDescription('สั่งเช็คอัปเดตทั้งหมดทันที (ไม่ต้องรอรอบถัดไป)')
+  )
+  .addSubcommand(sub =>
+    sub
+      .setName('info')
+      .setDescription('ดูรายละเอียดโปรเจกต์ที่ติดตาม (logo, description, ลิงค์ดาวน์โหลด)')
+      .addStringOption(opt =>
+        opt.setName('project_id').setDescription('project id ที่ติดตามอยู่').setRequired(true)
+      )
   );
 
 export async function execute(interaction) {
@@ -84,6 +92,20 @@ export async function execute(interaction) {
         { name: 'Project ID', value: String(projectId), inline: true }
       )
       .setColor(0x5865f2);
+
+    // เพิ่ม logo/icon ถ้ามี
+    if (platform === 'modrinth' && projectInfo.icon_url) {
+      embed.setThumbnail(projectInfo.icon_url);
+    } else if (platform === 'curseforge' && projectInfo.logo?.url) {
+      embed.setThumbnail(projectInfo.logo.url);
+    }
+
+    // เพิ่มลิงค์ไปเว็บโปรเจกต์ด้านล่าง
+    if (platform === 'modrinth') {
+      embed.setURL(`https://modrinth.com/${projectInfo.project_type || 'modpack'}/${projectInfo.slug}`);
+    } else if (platform === 'curseforge') {
+      embed.setURL(`https://www.curseforge.com/minecraft/modpacks/${projectInfo.slug}`);
+    }
 
     if (latest) {
       embed.addFields({
@@ -142,6 +164,68 @@ export async function execute(interaction) {
     const { checkUpdates } = await import('../poller.js');
     await checkUpdates(interaction.client);
     await interaction.editReply('✅ เช็คอัปเดตทั้งหมดเรียบร้อย ถ้ามีอัปเดตใหม่จะโพสต์ในเธรดที่เกี่ยวข้องแล้ว');
+    return;
+  }
+
+  if (sub === 'info') {
+    await interaction.deferReply({ ephemeral: false });
+    const projectId = interaction.options.getString('project_id');
+    
+    const track = db.data.tracks.find(t => t.guildId === interaction.guildId && t.projectId === projectId);
+    if (!track) {
+      return interaction.editReply('❌ ไม่พบการติดตามโปรเจกต์นี้ในเซิร์ฟเวอร์');
+    }
+
+    const adapter = adapters[track.platform];
+    if (!adapter) {
+      return interaction.editReply('❌ ไม่รองรับแพลตฟอร์มนี้');
+    }
+
+    let projectInfo, latest;
+    try {
+      projectInfo = await adapter.getProjectInfo(track.projectId);
+      latest = await adapter.getLatestVersion(track.projectId);
+    } catch (err) {
+      return interaction.editReply(`❌ ดึงข้อมูลไม่สำเร็จ: ${err.message}`);
+    }
+
+    const rawDesc = projectInfo.description || projectInfo.summary || 'ไม่มีคำอธิบาย';
+    const desc = rawDesc.length > 2000 ? rawDesc.slice(0, 2000) + '...' : rawDesc;
+
+    const embed = new EmbedBuilder()
+      .setTitle(track.name)
+      .setDescription(desc)
+      .setColor(0x5865f2)
+      .addFields(
+        { name: 'แพลตฟอร์ม', value: track.platform, inline: true },
+        { name: 'Project ID', value: track.projectId, inline: true },
+        { name: 'โพสต์ใน', value: `<#${track.threadId}>`, inline: true }
+      );
+
+    // เพิ่ม logo
+    if (track.platform === 'modrinth' && projectInfo.icon_url) {
+      embed.setThumbnail(projectInfo.icon_url);
+    } else if (track.platform === 'curseforge' && projectInfo.logo?.url) {
+      embed.setThumbnail(projectInfo.logo.url);
+    }
+
+    // เพิ่มเวอร์ชันล่าสุด
+    if (latest) {
+      embed.addFields({
+        name: 'เวอร์ชันปัจจุบัน',
+        value: latest.version_number || latest.displayName || 'N/A',
+        inline: true,
+      });
+    }
+
+    // ลิงค์ไปเว็บ
+    if (track.platform === 'modrinth') {
+      embed.setURL(`https://modrinth.com/${projectInfo.project_type || 'modpack'}/${projectInfo.slug}`);
+    } else if (track.platform === 'curseforge') {
+      embed.setURL(`https://www.curseforge.com/minecraft/modpacks/${projectInfo.slug}`);
+    }
+
+    await interaction.editReply({ embeds: [embed] });
     return;
   }
 }
