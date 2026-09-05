@@ -57,7 +57,7 @@ export async function execute(interaction) {
   if (sub === 'create-forum') {
     const name = interaction.options.getString('name');
     const forum = await interaction.guild.channels.create({ name, type: ChannelType.GuildForum });
-    await interaction.reply({ content: `✅ สร้าง forum channel แล้ว: ${forum}`, ephemeral: true });
+    await interaction.reply({ content: `Forum channel created: ${forum}`, ephemeral: true });
     return;
   }
 
@@ -70,14 +70,14 @@ export async function execute(interaction) {
     const customDesc = interaction.options.getString('description');
 
     const adapter = adapters[platform];
-    if (!adapter) return interaction.editReply('❌ ไม่รองรับแพลตฟอร์มนี้');
+    if (!adapter) return interaction.editReply('Platform not supported');
 
     let projectInfo, latest;
     try {
       projectInfo = await adapter.getProjectInfo(projectId);
       latest = await adapter.getLatestVersion(projectId);
     } catch (err) {
-      return interaction.editReply(`❌ ดึงข้อมูลไม่สำเร็จ: ${err.message}`);
+      return interaction.editReply(`Failed to fetch project info: ${err.message}`);
     }
 
     const name = customTitle || projectInfo.title || projectInfo.name || projectId;
@@ -88,19 +88,19 @@ export async function execute(interaction) {
       .setTitle(name)
       .setDescription(desc)
       .addFields(
-        { name: 'แพลตฟอร์ม', value: platform, inline: true },
+        { name: 'Platform', value: platform, inline: true },
         { name: 'Project ID', value: String(projectId), inline: true }
       )
       .setColor(0x5865f2);
 
-    // เพิ่ม logo/icon ถ้ามี
+    // Add logo/icon if available
     if (platform === 'modrinth' && projectInfo.icon_url) {
       embed.setThumbnail(projectInfo.icon_url);
     } else if (platform === 'curseforge' && projectInfo.logo?.url) {
       embed.setThumbnail(projectInfo.logo.url);
     }
 
-    // เพิ่มลิงค์ไปเว็บโปรเจกต์ด้านล่าง
+    // Add link to project page
     if (platform === 'modrinth') {
       embed.setURL(`https://modrinth.com/${projectInfo.project_type || 'modpack'}/${projectInfo.slug}`);
     } else if (platform === 'curseforge') {
@@ -109,7 +109,7 @@ export async function execute(interaction) {
 
     if (latest) {
       embed.addFields({
-        name: 'เวอร์ชันล่าสุดตอนนี้',
+        name: 'Current Version',
         value: latest.version_number || latest.displayName || 'N/A',
       });
     }
@@ -118,7 +118,7 @@ export async function execute(interaction) {
     try {
       thread = await forum.threads.create({ name: name.slice(0, 90), message: { embeds: [embed] } });
     } catch (err) {
-      return interaction.editReply(`❌ สร้างโพสต์ใน forum ไม่สำเร็จ: ${err.message} (เช็คสิทธิ์บอทในแชนแนลนี้)`);
+      return interaction.editReply(`Error creating forum post: ${err.message} (Check bot permissions in this channel)`);
     }
 
     db.data.tracks.push({
@@ -132,7 +132,7 @@ export async function execute(interaction) {
     });
     await db.write();
 
-    await interaction.editReply(`✅ สร้างโพสต์และเริ่มติดตามแล้ว: ${thread}`);
+    await interaction.editReply(`Successfully created tracking post: ${thread}`);
     return;
   }
 
@@ -144,14 +144,14 @@ export async function execute(interaction) {
     );
     await db.write();
     const removed = before !== db.data.tracks.length;
-    await interaction.reply({ content: removed ? '✅ หยุดติดตามแล้ว' : '❌ ไม่พบรายการนี้', ephemeral: true });
+    await interaction.reply({ content: removed ? 'Tracking stopped' : 'Project not found', ephemeral: true });
     return;
   }
 
   if (sub === 'list') {
     const tracks = db.data.tracks.filter(t => t.guildId === interaction.guildId);
     if (!tracks.length) {
-      await interaction.reply({ content: 'ยังไม่มีการติดตามในเซิร์ฟเวอร์นี้', ephemeral: true });
+      await interaction.reply({ content: 'No tracked projects in this server', ephemeral: true });
       return;
     }
     const lines = tracks.map(t => `• **${t.name}** (${t.platform} / ${t.projectId}) → <#${t.threadId}>`);
@@ -163,7 +163,7 @@ export async function execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     const { checkUpdates } = await import('../poller.js');
     await checkUpdates(interaction.client);
-    await interaction.editReply('✅ เช็คอัปเดตทั้งหมดเรียบร้อย ถ้ามีอัปเดตใหม่จะโพสต์ในเธรดที่เกี่ยวข้องแล้ว');
+    await interaction.editReply('Update check completed. New updates posted to relevant threads.');
     return;
   }
 
@@ -173,12 +173,12 @@ export async function execute(interaction) {
     
     const track = db.data.tracks.find(t => t.guildId === interaction.guildId && t.projectId === projectId);
     if (!track) {
-      return interaction.editReply('❌ ไม่พบการติดตามโปรเจกต์นี้ในเซิร์ฟเวอร์');
+      return interaction.editReply('Project not found in this server');
     }
 
     const adapter = adapters[track.platform];
     if (!adapter) {
-      return interaction.editReply('❌ ไม่รองรับแพลตฟอร์มนี้');
+      return interaction.editReply('Platform not supported');
     }
 
     let projectInfo, latest;
@@ -186,10 +186,10 @@ export async function execute(interaction) {
       projectInfo = await adapter.getProjectInfo(track.projectId);
       latest = await adapter.getLatestVersion(track.projectId);
     } catch (err) {
-      return interaction.editReply(`❌ ดึงข้อมูลไม่สำเร็จ: ${err.message}`);
+      return interaction.editReply(`Failed to fetch project info: ${err.message}`);
     }
 
-    const rawDesc = projectInfo.description || projectInfo.summary || 'ไม่มีคำอธิบาย';
+    const rawDesc = projectInfo.description || projectInfo.summary || 'No description available';
     const desc = rawDesc.length > 2000 ? rawDesc.slice(0, 2000) + '...' : rawDesc;
 
     const embed = new EmbedBuilder()
@@ -197,28 +197,28 @@ export async function execute(interaction) {
       .setDescription(desc)
       .setColor(0x5865f2)
       .addFields(
-        { name: 'แพลตฟอร์ม', value: track.platform, inline: true },
+        { name: 'Platform', value: track.platform, inline: true },
         { name: 'Project ID', value: track.projectId, inline: true },
-        { name: 'โพสต์ใน', value: `<#${track.threadId}>`, inline: true }
+        { name: 'Thread', value: `<#${track.threadId}>`, inline: true }
       );
 
-    // เพิ่ม logo
+    // Add logo
     if (track.platform === 'modrinth' && projectInfo.icon_url) {
       embed.setThumbnail(projectInfo.icon_url);
     } else if (track.platform === 'curseforge' && projectInfo.logo?.url) {
       embed.setThumbnail(projectInfo.logo.url);
     }
 
-    // เพิ่มเวอร์ชันล่าสุด
+    // Add current version
     if (latest) {
       embed.addFields({
-        name: 'เวอร์ชันปัจจุบัน',
+        name: 'Current Version',
         value: latest.version_number || latest.displayName || 'N/A',
         inline: true,
       });
     }
 
-    // ลิงค์ไปเว็บ
+    // Add project link
     if (track.platform === 'modrinth') {
       embed.setURL(`https://modrinth.com/${projectInfo.project_type || 'modpack'}/${projectInfo.slug}`);
     } else if (track.platform === 'curseforge') {

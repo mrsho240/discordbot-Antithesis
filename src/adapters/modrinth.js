@@ -22,10 +22,10 @@ export function getVersionId(version) {
 export function formatVersionMessage(version, projectInfo) {
   const gameVersions = (version.game_versions || []).join(', ') || 'N/A';
   const loaders = (version.loaders || []).join(', ') || 'N/A';
-  let changelog = version.changelog || 'ไม่มี changelog';
+  let changelog = version.changelog || 'No changelog provided';
   if (changelog.length > 1400) changelog = changelog.slice(0, 1400) + '...';
 
-  // ค้นหาลิงก์ดาวน์โหลดจาก files
+  // Find download link from files
   let downloadUrl = null;
   let fileName = null;
   if (version.files && version.files.length > 0) {
@@ -35,15 +35,26 @@ export function formatVersionMessage(version, projectInfo) {
     fileName = file.filename;
   }
 
+  // Extract gallery images from project
+  let galleryImages = [];
+  if (projectInfo.gallery && Array.isArray(projectInfo.gallery)) {
+    galleryImages = projectInfo.gallery
+      .filter(g => g.url)
+      .slice(0, 3)
+      .map(g => g.url);
+  }
+
   return {
-    title: `🔄 อัปเดตใหม่: ${version.name || version.version_number}`,
+    title: `Update: ${version.name || version.version_number}`,
     url: `https://modrinth.com/${projectInfo.project_type || 'project'}/${projectInfo.slug}/version/${version.id}`,
     icon: projectInfo.icon_url,
     thumbnail: projectInfo.icon_url,
     downloadUrl,
     downloadFileName: fileName,
+    galleryImages,
+    changelog,
     fields: [
-      { name: 'เวอร์ชัน', value: version.version_number || 'N/A', inline: true },
+      { name: 'Version', value: version.version_number || 'N/A', inline: true },
       { name: 'Game Version', value: gameVersions, inline: true },
       { name: 'Loader', value: loaders, inline: true },
       { name: 'Changelog', value: changelog },

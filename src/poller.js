@@ -32,20 +32,34 @@ export async function checkUpdates(client) {
             .setColor(0x57f287)
             .setTimestamp(new Date());
 
-          // เพิ่ม icon/logo ถ้ามี
+          // Add icon/logo if available
           if (msg.icon) embed.setThumbnail(msg.icon);
           if (msg.thumbnail) embed.setImage(msg.thumbnail);
 
           let content = '';
-          // เพิ่มลิงค์ดาวน์โหลด
+          // Add download link
           if (msg.downloadUrl && msg.downloadFileName) {
-            content = `📥 **[ดาวน์โหลด: ${msg.downloadFileName}](${msg.downloadUrl})**`;
+            content = `[Download: ${msg.downloadFileName}](${msg.downloadUrl})`;
           }
 
-          await thread.send({ content: content || undefined, embeds: [embed] });
+          // Add gallery images in separate messages if available
+          const messages = [{ content: content || undefined, embeds: [embed] }];
+          
+          if (msg.galleryImages && msg.galleryImages.length > 0) {
+            for (const imageUrl of msg.galleryImages) {
+              const galleryEmbed = new EmbedBuilder()
+                .setImage(imageUrl)
+                .setColor(0x57f287);
+              messages.push({ embeds: [galleryEmbed] });
+            }
+          }
+
+          for (const msg of messages) {
+            await thread.send(msg);
+          }
           console.log(`[poller] posted update for ${track.platform}/${track.projectId}`);
         } else {
-          console.warn(`[poller] thread ${track.threadId} not found (ถูกลบ?) ข้าม track นี้ไป`);
+          console.warn(`[poller] thread ${track.threadId} not found (deleted?) skipping this track`);
         }
 
         track.lastVersionId = latestId;
