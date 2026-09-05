@@ -1,0 +1,19 @@
+{
+  "name": "modtrack-bot",
+  "version": "1.0.0",
+  "description": "Discord bot: create forum posts and auto-notify when tracked mods/modpacks update",
+  "main": "src/index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy-commands": "node src/deploy-commands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
+    "lowdb": "^7.0.1"
+  }
+}
