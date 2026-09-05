@@ -44,9 +44,18 @@ export async function getChangelog(modId, fileId) {
 
 export async function formatVersionMessage(file, projectInfo) {
   const changelog = await getChangelog(projectInfo.id, file.id);
+  
+  // ดึง download URL จาก file
+  const downloadUrl = file.downloadUrl;
+  const downloadFileName = file.fileName;
+
   return {
     title: `🔄 อัปเดตใหม่: ${file.displayName}`,
     url: `https://www.curseforge.com/minecraft/modpacks/${projectInfo.slug}/files/${file.id}`,
+    icon: projectInfo.logo?.url,
+    thumbnail: projectInfo.logo?.url,
+    downloadUrl,
+    downloadFileName,
     fields: [
       { name: 'ไฟล์', value: file.fileName, inline: true },
       { name: 'Game Version', value: (file.gameVersions || []).slice(0, 5).join(', ') || 'N/A', inline: true },
