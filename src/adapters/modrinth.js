@@ -25,9 +25,23 @@ export function formatVersionMessage(version, projectInfo) {
   let changelog = version.changelog || 'ไม่มี changelog';
   if (changelog.length > 1400) changelog = changelog.slice(0, 1400) + '...';
 
+  // ค้นหาลิงก์ดาวน์โหลดจาก files
+  let downloadUrl = null;
+  let fileName = null;
+  if (version.files && version.files.length > 0) {
+    const primary = version.files.find(f => f.primary);
+    const file = primary || version.files[0];
+    downloadUrl = file.url;
+    fileName = file.filename;
+  }
+
   return {
     title: `🔄 อัปเดตใหม่: ${version.name || version.version_number}`,
     url: `https://modrinth.com/${projectInfo.project_type || 'project'}/${projectInfo.slug}/version/${version.id}`,
+    icon: projectInfo.icon_url,
+    thumbnail: projectInfo.icon_url,
+    downloadUrl,
+    downloadFileName: fileName,
     fields: [
       { name: 'เวอร์ชัน', value: version.version_number || 'N/A', inline: true },
       { name: 'Game Version', value: gameVersions, inline: true },
