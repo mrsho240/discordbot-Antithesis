@@ -31,7 +31,18 @@ export async function checkUpdates(client) {
             .addFields(msg.fields)
             .setColor(0x57f287)
             .setTimestamp(new Date());
-          await thread.send({ embeds: [embed] });
+
+          // เพิ่ม icon/logo ถ้ามี
+          if (msg.icon) embed.setThumbnail(msg.icon);
+          if (msg.thumbnail) embed.setImage(msg.thumbnail);
+
+          let content = '';
+          // เพิ่มลิงค์ดาวน์โหลด
+          if (msg.downloadUrl && msg.downloadFileName) {
+            content = `📥 **[ดาวน์โหลด: ${msg.downloadFileName}](${msg.downloadUrl})**`;
+          }
+
+          await thread.send({ content: content || undefined, embeds: [embed] });
           console.log(`[poller] posted update for ${track.platform}/${track.projectId}`);
         } else {
           console.warn(`[poller] thread ${track.threadId} not found (ถูกลบ?) ข้าม track นี้ไป`);
